@@ -9,12 +9,139 @@ grammar_cjkRuby: true
 注意：使用版本一定要大于 1.11.0 因为使用了ngx.var.request_id
 **代码写的比较好理解，肯定不优雅  哈~**
 
-**开源软件离不开大家的支持，如果公司用的可以，不妨购买技术支持服务吧【2000/月; 支付宝、微信：18801180400（留言注明公司等联系方式）。谢谢支持**
+
+正在更新说明WIKI篇,已经更新了安装篇，请自行查阅。
+
+更新：规则支持方式
+```
+现有：等于("") 包含("in") 列表("list") 字典("dict") 正则("jio|jo|***")
+增加：开头列表("start_list") -- 以什么什么开头列表
+      结尾列表("end_list")  -- 以什么什么结尾列表
+      包含列表("in_list")   -- 包含的列表形式
+      不区分大小写包含列表("rein_list")  --in_list扩展(不区分大小写)
+      【json 同 list 一样】
+EG：
+"host":[[
+          "www.baidu.",
+          "img.baidu."
+        ],
+            "start_list"
+        ]
+```
+
+
+
+# 变更历史
+
+## 1.7 更新二阶匹配规则支持取反，动作取消next等
+原二阶规则：["baidu","in"],支持取反后：["baidu","in",true];最后的默认是nil也就是false,不取反的意思，所以规则基本可以之间复用，动作为next的需要修改一下即可
+
+### 1.7.1.1 修改 host_Mod 规则匹配
+目前只有两种规则（app_ext | network） 请参考 conf_json/host_json/101.200.122.200.json
+
+### 1.7.0.24 原规则匹配变更：table-->list;list-->dict
+方便理解list表示序列，dict表示字典。
+EG：
+```
+"method":[
+            {
+                "POST":true,
+                "GET":true
+            },
+            "dict" --- 原 list
+        ]
+"ips": [[
+            "101.254.241.149",
+            "106.37.236.170"],
+            "list" --- 原 table
+        ]
+```
+
+## 1.6 更新计数count_dict到DB 2,key也进行分开，优化规则缓存
+规则进行了缓存，大幅提高性能，json文件保存进行了美化等......
+
+## 1.5 应一些朋友强烈要求增加Master/Slave模式
+主：定时将内存中的配置推送到redis, 从：定时从redis拉取数据到内存后，并保存到文件
+
+## 1.4 更新命名相关，以多规则匹配
+原来url改成uri，args改成query_string，修改的比较多，还有增加app_Mod实现多规则匹配，连接符支持OR
+
+## 1.3 更新跳转功能，可配置进行set-cookie操作
+可以配置某一个或者多个url使用跳转set-cookie操作。cookie是无状态的。
+
+## 1.2 更新支持拦截外部的csrf
+在referer_Mod处，增加action，`allow`表示允许且后续的规则不用在匹配（一般是静态资源如图片/js/css等），`next`表示白名单匹配成功后，会继续后面的规则匹配（这里就用于拦截外部的CSRF）增加`next`是因为原来代码中，若配置了防护站外的CSRF，后续的规则会bypass,所以增加的，这样就不会出现一些绕过问题。
+**后续的action理论上都支持该语法**
+
+## 1.1 增加app_Mod,丰富allow动作（ip）
+网站的某个目录进行IP白名单的访问控制（后台、phpmyadmin等）
+
+## 0.9 - 1.0 修改了大量全局函数
+在学习完[OpenResty最佳实践][7]后，代码太不专业，修改了大量全局变量、函数
+
+## 0.8 优化一下算法
+原来args是遍历每个参数在连接起来，感觉性能有时有点瓶颈，就使用新api取出url中的所有参数，经过测试效果要比原来好很多。
+
+## 0.7 增加集群版本
+当时大约有2-4台OpenStar服务器用于安全防护，通过脚本进行统一管理的，没有进行真正的统一管理，所以抽空的时候把redis用上。
+
+## 0.6 增加API相关操作
+因为是个蹩脚的程序员（没办法，搞安全的现在都被逼的写代码了；感谢春哥，我在写的过程中非常的快乐，所以就把项目叫做OpenStar[开心]，请勿见笑了）、前端界面我迟迟没有想好，所以先把一下操作的API封装了，也满足当时公司脚本化需求。
+
+## 0.4-0.5 增加配置文件操作
+刚开始都是写在lua代码中，随着功能增加，决定通过配置文件进行操作，所有就使用json方式进行定义配置文件。
+
+## 0.3 增加waf防护模块
+随着cc防护成功后，我陆续增加了waf相关的功能，规则参考了[modsecurity][8]、[loveshell][9]防护模块、以及互联网搜集的一些过滤点
+
+## 0.2 CC防护应用层版
+通过网络层+应用层的防护后，我后续增加了应用层的安全防护，如应用层set cookie、url跳转、js跳转等这样应用层的防护模块
+
+## 0.1 CC防护版
+当时是为了解决公司的CC攻击，由于一些硬件抗D设备在新的网络环境下（有CDN网络下）无法获取用户真实IP头，我才动手将第一个版本完成，当时功能就是有通过自定义HTTP头获取用户真实ip进行访问频率的限制。（OpenStar可以根据某个url进行频率限制，不仅仅是整个网站的[排除静态文件，如设置了referer\_Mod 或者 url\_Mod 中资源的allow操作]）
+
+# TOP
+
+[安装篇][3]
+
+[基础配置说明][4] base.json
+
+[STEP 0：realIpFrom_Mod][10]
+
+[STEP 1：ip_Mod][11]
+
+[STEP 2：host_method_Mod][12]
+
+[STEP 3：rewrite_Mod][13]
+
+[STEP 4：host_Mod][14]
+
+[STEP 5：app_Mod][15]
+
+[STEP 6：referer_Mod][16]
+
+[STEP 7：uri_Mod][17]
+
+[STEP 8：header_Mod][18]
+
+[STEP 9：useragent_Mod][19]
+
+[STEP 10：cookie_Mod][20]
+
+[STEP 11：args_Mod][21]
+
+[STEP 12：post_Mod][22]
+
+[STEP 13：network_Mod][23]
+
+[STEP 14：replace_Mod][24]
+
 
 一些同学问的比较多的问题：
 
 0：规则组问题
-支持IFTTT模式，如条件是（referer中包含baidu 或者 cookie中不包含abc 且useragent正则匹配spider）等等这样复杂的表达式，执行动作也是有多个可以使用(deny allow log refile rehtml relua*)可以定制各种复杂的场景。
+支持IFTTT模式，如条件是（referer中包含baidu 或者 cookie中不包含abc 且useragent正则匹配spider）等等这样复杂的表达式，执行动作也是有多个可以使用(deny allow log refile rehtml relua*)可以定制各种复杂的场景
+
 
 1：关于多站点的事
 
@@ -27,7 +154,17 @@ grammar_cjkRuby: true
 
 3：如有一些技术类问题，请尽量完整一些，包括ngx配置文件，和比较完整的代码，不然真心不好作答，有时间我会尽量回复（不一定是对的），没时间回复的请谅解。
 
-admin@17173.com邮箱已经没有在用了，请不要给这个发邮箱啦，18801180400@qq.com，也是手机、微信。
+admin@17173.com邮箱已经没有在用了，请不要给这个发邮箱啦。
+
+## TODO ##
+
+  无
+
+  商业版说明：
+
+  **支持域名管理，支持geoip（按国家，城市进行拦截等），支持SQL语义分析(功能完善中)，更强大的api接口，默认规则更强大等等**
+
+----------
 
 CC防护、防抓取、刷单等防护算法：
 
@@ -80,7 +217,8 @@ ii：增加args参数尾巴，其value值合法性由控件和web服务器双向
 
 iii：增加POST参数，其value值合法性由控件和web服务器双向约定或加密产生，等等对下一次请求进行验证增加
 
-##重点##
+## 重点 ##
+
 这些防护算法我正在申请相关专利，个人用户以后永久免费的，仅对企业收费，请抄袭党，无耻公司放过小弟一码。
 
 这些防护算法我正在申请相关专利，个人用户以后永久免费的，仅对企业收费，请抄袭党，无耻公司放过小弟一码。
@@ -103,7 +241,7 @@ iii：增加POST参数，其value值合法性由控件和web服务器双向约�
 
 
 在**OpenStar**中的WAF防护模块，采用传统的字符串的匹配如正则过滤、包含等（*有人会问现在不是流行自主学习么；正则、包含等会有盲点、会被绕过；WAF的误报和漏报问题等等......*）。**规则不是万能的，但是没有规则是万万不能的** 这里我简单说明一下，自主分析学习引擎是我们的日志分析引擎做的（预留了api可实时增加拦截），这里是高性能、高并发的点，就用简单快速的方法解决，且根据业务实际调整好防护策略，可以解决绝大多数WEB安全1.0和WEB安全2.0类型的漏洞（90%+的问题）。
-WAF	防护从header,args,post,访问频率等，分层进行按顺序防护，详细在后面的功能会详细说明
+WAF 防护从header,args,post,访问频率等，分层进行按顺序防护，详细在后面的功能会详细说明
 
  - **WEB安全1.0**
    在1.0时代下，攻击是通过服务器漏洞（IIS6溢出等）、WEB应用漏洞（SQL注入、文件上传、命令执行、文件包含等）属于服务器类的攻击，该类型漏洞虽然经历了这么多年，很遗憾，此类漏洞还是存在，并且重复在犯相同的错误。
@@ -113,10 +251,10 @@ WAF	防护从header,args,post,访问频率等，分层进行按顺序防护，�
 
  - **WEB安全3.0**
    同开发设计模式类似（界面、业务逻辑、数据），3.0将关注应用本身的业务逻辑和数据安全，如密码修改绕过、二级密码绕过、支付类漏洞、刷钱等类型的漏洞，故注重的是产品本身的业务安全、数据安全、风控安全等。
-   
+
    > `安全不仅仅是在技术层面、还应该在行政管理层面、物理层面去做好安全的防护，才能提供最大限度的保护。`
    > 安全行业多年的从业经验：人，才是最大的威胁；无论是外部、内部、无心、有意过失。（没有丑女人、只有懒女人）我想可以套用在此处，纯属个人见解。
- 
+
 # CC/采集防护
 什么是**CC攻击**，简单的说一下，就是用较少的代价恶意请求web（应用）中的重资源消耗点（CPU/IO/数据库等等）从而达到拒绝服务的目的；**数据采集**，就是内容抓取了，简单这么理解吧
 > `非官方学术类的解释，先将就理解下`
@@ -126,26 +264,26 @@ WAF	防护从header,args,post,访问频率等，分层进行按顺序防护，�
  - 行为（GET、POST等）
   目前主要还是这两中method攻击为主，其他的少之又少。
  - 被攻击的点
- 
+
     1：用户可直接访问的URL（搜索、重CPU计算、IO、数据库操作等）
-     
+
     2：嵌入的URL（验证码、ajax接口等）
-     
+
     3：面向非浏览器的接口（一些API、WEBservice等）
 
-    4：基于特定web服务、语言等的特定攻击（慢速攻击、PHP-dos等） 
- 
+    4：基于特定web服务、语言等的特定攻击（慢速攻击、PHP-dos等）
+
 > `面对CC攻击我们需要根据实际情况采用不同的防护算法，比如攻击的点是一个ajax点，你使用js跳转/验证码肯定就有问题`
 
 ## 防护方法
  - 网络层
  通过访问ip的频率、统计等使用阀值的方式进行频率和次数的限制，黑名单方式
- 
+
 - 网络层+应用层
- 在后来的互联网网络下，有了的CDN加入，现在增加的网络层的防护需要扩展，那么统计的IP将是在HTTP头中的IP，仍然使用频率、次数、黑名单的方式操作。 
+ 在后来的互联网网络下，有了的CDN加入，现在增加的网络层的防护需要扩展，那么统计的IP将是在HTTP头中的IP，仍然使用频率、次数、黑名单的方式操作。
  > `但是很多厂家的硬件流量清洗等设备，有的获取用户真实IP从HTTP头中取的是固定字段（X-FOR-F），不能自定义，更甚至有的厂家就没有该功能，这里就不说具体的这些厂家名字了`PS: 在传统的4层防护上，是没有问题的
 
--  应用层 
+-  应用层
 TAG验证、SET COOKIE、URL跳转、JS跳转、验证码、页面嵌套、强制静态缓存等
 防护是需要根据攻击点进行分别防护的，如攻击的是嵌入的url，我们就不能使用JS跳转、302验证码等这样的方法；**在多次的CC防护实战中，如使用url跳转、set cookie，在新型的CC攻击下，这些防护都已经失效了**。后面我会分享一下我的防护算法，并且在**OpenStar**中已经可以根据情况实现我所说的防护算法。
 浏览器是可以执行JS和flash的，这里我分享一些基于JS的防护算法，flash需要自己去写（比js复杂一些），可以实现flash应用层的安全防护和防页面抓取（开动你的大脑吧）
@@ -181,7 +319,7 @@ url添加的尾巴（args参数）是服务器动态生成的token，而不是�
 
  - 网络层+应用层：用户ip在http头中，需要从http头取ip，在进行频率限制
 （其实做好了，这一层的防护，基本不用进入第三阶段的应用层防护了）
- 
+
  - 应用层：校验串使用服务端生成的token，进行严格服务器token验证检查
 
 第三阶段：
@@ -200,7 +338,7 @@ url添加的尾巴（args参数）是服务器动态生成的token，而不是�
 
 wget
 
-git clone 
+git clone
 
 **已经打包的一些脚本，请参考bash目录**
 
@@ -230,29 +368,29 @@ hostname：`["*",""]` = `["*","",false]`
 
 ==>表示匹配所有域名（使用字符串匹配，非正则，非常快）
 
-hostname：`["*\\.game\\.com","jio"]` 
+hostname：`["*\\.game\\.com","jio"]`
 
 ==>表示使用正则匹配host（**ngx.re.find($host,参数1，参数2)**）
 
-hostname：`[["127.0.0.1","127.0.0.1:8080"],"table"]` 
+hostname：`[["127.0.0.1","127.0.0.1:8080"],"list"]`
 
-==>表示匹配参数1列表中所有host
+==>表示匹配参数1 列表 中所有host
 
-hostname：`[{"127.0.0.1":true,"127.0.0.1:5460":true},"list"]` 
+hostname：`[{"127.0.0.1":true,"127.0.0.1:5460":true},"dict"]`
 
-==>表示匹配list中host为true的host
+==>表示匹配 字典 中host为true的host
 
-uri：`["/admin","in"]` 
+uri：`["/admin","in"]`
 
 ==>表示匹配uri中包含/admin的所有uri都会被匹配（**string.find($uri,参数1,1,true)**）
 
-ip：`[["127.0.0.1/32",""113.45.199.0/24""],"cidr"]` 
+ip：`[["127.0.0.1/32",""113.45.199.0/24""],"cidr"]`
 
 ==>表示匹配的ip在这两组ip段/ip中
 
-args：`["*","",["args_name","all"],false]` 
+args：`["*","",["args_name","all"],false]`
 args：`["*","",["args_name","end"]]` = `["*","",["args_name","end"],false]`
-args：`["*","",["args_name",1]]` 
+args：`["*","",["args_name",1]]`
 
 说明：第3个参数表示取args参数table的key名称，第3个参数[2]表示取args[args_name]为table时，匹配任意(all)，匹配最后一个(end),匹配第几个(数字)，默认取第一个
 
@@ -262,172 +400,53 @@ args：`["*","",["args_name",1]]`
 
 ## 执行流程
 
-![enter description here][3]
+![enter description here][5]
 
  - init阶段
- 
+
  a：首先加载本地的base.json配置文件，将相关配置读取到config\_dict,host\_dict,ip\_dict中
- 
+
  - access阶段（自上到下的执行流程，规则列表也是自上到下按循序执行的）
- 
+
  0：realIpFrom_Mod ==> 获取用户真实IP（从HTTP头获取，如设置）
- 
+
  1：ip_Mod ==> 请求ip的黑/白名单、log记录
- 
+
  2：host\_method\_Mod ==> host和method过滤（白名单）
- 
+
  3：rewrite_Mod ==> 跳转模块，set-cookie操作
 
  4：host_Mod ==> 对应host执行的规则过滤（uri,referer,useragent等）
 
     这里是产品中提供给独立用户使用的过滤规则。目前支持自定义规则组（任意参数，任意组合）
- 
+
  5：app_Mod ==> 用户自定义应用层过滤
- 
+
  6：referer_Mod ==> referer过滤（黑/白名单、log记录）
- 
+
  7：uri_Mod ==> uri过滤（黑/白名单、log记录）
- 
+
  8：header_Mod ==> header过滤（黑名单）
- 
+
  9：useragent_Mod ==> useragent过滤（黑/白名单、log记录）
- 
+
  10：cookie_Mod ==> cookie过滤（黑/白名单、log记录）
- 
+
  11：args\_Mod ==> args参数过滤[实际是query_string]（黑/白名单、log记录）
- 
+
  12：post_Mod ==> post参数过滤[实际是整个post内容]（黑/白名单、log记录）
- 
+
  13：network_Mod ==> 应用层网络频率限制（频率黑名单）
 
  - body阶段
- 
+
  14：replace\_Mod ==> 内容替换规则（动态进行内容替换，性能消耗较高慎用，可以的话用app\_Mod中rehtml、refile这2个自定义action）
- 
-## 主配置
 
-  base.json文件进行配置，主要是一些参数开关、目录设置
-  注：以下表示法，"on"表示开启，"off"表示关闭。
-  ```
-
-{
-  "openstar_version":"v 1.5.0.7",
-  #该参数就是OpenStar标记版本更新的
-
-  "Mod_state":"on",
-  #该参数是全局规则开关，目前支持`on off log`
-  #增加`log` 表示仅记录,即原来的拦截就会失效
-
-  "ngx_status":"on",
-  #该参数是请求计数开关控制
-
-  "redis_Mod" : {"state":"on","ip":"127.0.0.1","Port" : 6379,"Password":""},
-  #该参数设定redis相关参数，state：是否开启；redis的ip、端口、密码等参数
-  #说明：在使用集群模式下，配置该参数，单机下无须配置使用。redis保存了base.json内容，
-  #和conf_json目录下所有规则的json文件，以及拦截记录的计数（如host/method拦截计数）。
-
-  "autoSync":{"state":"Master/Slave/off","timeAt":5},
-  # state对应的几个状态，Master 就是定时将当前服务器内存中的数据推送到redis中
-  # Slave 就是定时从redis中拉取配置到内存后，在保存到文件中
-  # 本机的计数数据一直是定时推送到redis的
-  # timeAt 表示定时时长
-
-  "realIpFrom_Mod" : "on",
-  #该参数是否开启从http头中取用户真实IP，适用于CDN后端等
-
-  "ip_Mod" : "on",
-  #该参数是否启用IP黑、白名单，IP是用户真实IP（http头取出，如设置）
-
-  "host_method_Mod" : "on",
-  #该参数是否启用host、method白名单（仅允许）
-
-  "rewrite_Mod" : "on",
-  #该参数是配置跳转使用，如set-cookie。（目前仅有set-cookie，后续增加验证码跳转）
-
-  "app_Mod" : "on",
-  #该参数是否启用用户自定义应用层规则
-
-  "referer_Mod" : "on",
-  #该参数是否启用referer过滤
-
-  "uri_Mod" : "on",
-  #该参数是否启用uri过滤
-
-  "header_Mod" : "on",
-  #该参数是否启用headers头过滤
-
-  "useragent_Mod" : "on",
-  #该参数是否启用useragent过滤
-
-  "cookie_Mod" : "on",
-  #该参数是否启用cookie过滤
-
-  "args_Mod" : "on",
-  #该参数是否启用args过滤，准确的说是args_data过滤
-
-  "post_Mod" : "on",
-  #该参数是否启用post过滤，准确的说是posts_data过滤
-
-  "post_form":12040,
-  #该参数表示post表单时，规则过滤时取文件内容的长度,目前还没有用上
-
-  "network_Mod" : "on",
-  #该参数是否启用network过滤频率规则
-
-  "replace_Mod" : "off",
-  #该参数是否启用应答内容替换规则
-
-  "debug_Mod" : true,
-  #该参数是否启用调试(影响json文件保存名称)
-
-  "baseDir" : "/opt/openresty/openstar/",
-  #该参数表示设置OpenStar根路径（绝对路径）
-
-  "logPath" : "/opt/openresty/openstar/logs/",
-  #该参数表示配置log文件存放目录
-
-  "jsonPath" : "/opt/openresty/openstar/conf_json/",
-  #该参数表示过滤规则存放目录
-  #该目录中有个host_json目录，是用于存放host过滤规则的json文件
-
-  "htmlPath" : "/opt/openresty/openstar/index/",
-  #该参数表示在app_Mod规则中一些文件、脚本存放路径
-
-  "denyMsg" : {"state":"on","msg":403},
-  #该参数表示，应用层拒绝访问时，显示的内容配置（现支持基于host配置内容/状态码）关联对应denyHost_Mod.json文件
-
-  "log_conf": {
-    "state":"on",
-    "tb_formart":[
-      "$time",
-      "$remoteIp",
-      "$host",
-      "$ip",
-      "$method",
-      "$server_protocol",
-      "$status",
-      "$request_uri",
-      "$useragent",
-      "$referer",
-      "waf_log:",
-      "$waf_log",
-      "\n"
-    ],
-    "tb_concat":" "
-  }
-  # 更新log_conf配置项，支持自定义logformat，文件名称固定到一个文件了（waf.log）
-  # state：日志开关，tb_formart：log拼接参数（支持动态变量），tb_concat：table的连接字符
-  # 动态变量支持：time(时间),remoteIp(直连ip),host(http头中的host),ip(从header头取的用户ip),method(请求的方法),server_protocol(协议和版本),status(状态),request_uri(请求的完整url，包含get的args参数),useragent,referer,cookie,query_string(get的args参数),headers_data(整个请求头),args_data(所有get参数的值),posts_data(所有post参数的值)，posts_all(整个post的内容体【暂不支持】),body_bytes_sent(返回内容长度)
-  # 后续可以继续增加动态变量
-}
-
-  ```
-
-## STEP 0：realIpFrom_Mod
+## <span id = "step0">STEP 0 : realIpFrom_Mod </span>
 
  - 说明：
 `{"101.200.122.200:5460": {"ips": ["*",""],"realipset": "x-for-f"}}`
- 
+
  通过上面的例子，表示域名id.game.com,从ips来的直连ip，用户真实ip在x-for-f中，ips是支持二阶匹配，可以参考例子进行设置，ips为\*时，表示不区分直连ip了。
 
 ## STEP 1：ip_Mod（黑/白名单、log记录）
@@ -435,21 +454,23 @@ args：`["*","",["args_name",1]]`
  - 说明：
  `{"ip":"111.206.199.61","action":"allow"}`
 `{"ip":"www.game.com-111.206.199.1","action":"deny"}`
- 
+
  上面的例子，表示ip为111.206.199.61（从http头获取，如设置）白名单
  action可以取值[allow、deny]，deny表示黑名单；第二个就表示对应host的ip黑/白名单，其他host不受影响。
 
-## STEP 2：host\_method\_Mod（白名单）
+ [返回](#top)
+
+## <span id = "step2">STEP 2：host\_method\_Mod（白名单）</span>
 
  - 说明：
- `{"state":"on","method":[["GET","POST"],"table"],"hostname":[["id.game.com","127.0.0.1"],"table"]}`
-   
+ `{"state":"on","method":[["GET","POST"],"list"],"hostname":[["id.game.com","127.0.0.1"],"list"]}`
+
   上面的例子表示，规则开启，host为id\.game\.com、127.0.0.1允许的method是GET和POST
   state：表示规则是否开启
-  method：表示允许的method，参数2标识参数1是字符串、list、正则
+  method：表示允许的method，参数2标识参数1是字符串、列表(list)、正则、字典(dict)
   hostname：表示匹配的host，规则同上
 
-  > **`"method": [["GET","POST"],"table"]`==> 表示匹配的method是GET和POST**
+  > **`"method": [["GET","POST"],"list"]`==> 表示匹配的method是GET和POST**
 
   > **`"method": ["^(get|post)$","jio"]` ==> 表示匹配method是正则匹配**
 
@@ -457,25 +478,30 @@ args：`["*","",["args_name",1]]`
 
   > **后面的很多规则都是使用该方式匹配的**
 
+[返回](#top)
+
+
 ## STEP 3: rewrite_Mod（跳转模块）
 - 说明：
 ```
     {
         "state": "on",
         "action": ["set-cookie"],
-		"set_cookie":["asjldisdafpopliu8909jk34jk","token_name"],
+    "set_cookie":["asjldisdafpopliu8909jk34jk","token_name"],
         "hostname": ["101.200.122.200",""],
         "uri": ["^/rewrite$","jio"]
     }
 ```
 上面的例子表示规则启用，host为101.200.122.200,且url匹配成功的进行302/307跳转，同时设置一个无状态cookie，名称是token。action中第二个参数是用户ip+和改参数进行md5计算的。请自行使用一个无意义字符串。防止攻击者猜测出生成算法。
 
+ [返回](#top)
+
 ## STEP 4：host_Mod
  - 说明：
  该模块是匹配对应host进行规则匹配，在conf_json/host_json/目录下，本地的基于host的匹配规则
  支持host.state状态支持[on log off],log即表示原匹配被拦截将失效，off表示不做任何规则的过滤
 
-## STEP 5：app_Mod（自定义action）
+## <span id = "step5">STEP 5：app_Mod（自定义action）</span>
  - 说明：
  ```
 {
@@ -485,28 +511,28 @@ args：`["*","",["args_name",1]]`
     "uri":["^/([\w]{4}\.html|deny1\.do|你好\.html)$","jio"]
 }
  ```
-   
+
   上面的例子表示规则启用，host为127.0.0.1，且url符合正则匹配的，拒绝访问
 
   state：规则是否启用
   action：执行动作
-  
+
   1：deny ==> 拒绝访问
-  
+
   2：allow ==> 允许访问
-  
+
   3：log ==> 仅记录日志
-  
+
   4：rehtml ==> 表示返回自定义字符串
-  
+
   5：refile ==> 表示返回自定义文件（文件内容返回）
-  
+
   6：relua ==> 表示返回lua执行脚本（使用dofile操作）
-  
+
   7：relua_str ==> 表示返回lua代码执行
- 
+
   hostname：匹配的host
-  
+
   uri：匹配的uri
 
   > **hostname 和 uri 使用上面描述过的匹配规则，参数2标记、参数1内容**
@@ -515,11 +541,13 @@ args：`["*","",["args_name",1]]`
 
   > **各种高级功能基本就靠这个模块来实现了，需要你发挥想象**
 
+ [返回](#top)
+
 ## STEP 6：referer_Mod（白名单）
 
  - 说明：
  `{"state":"on","uri":["\\.(gif|jpg|png|jpeg|bmp|ico)$","jio"],"hostname":["127.0.0.1",""],"referer":["*",""],"action":"allow"}`
- 
+
   上面的例子表示，host为127.0.0.1，uri配置的正则成功，referer正则匹配成功就放行**【这里把一些图片等静态资源可以放到这里，因为使用OpenStar，不需要将access_by_lua_file 专门放到nginx的不同的location动态节点去，这样后续的匹配规则就不对这些静态资源进行匹配了，减少总体的匹配次数，提高效率】**，action表示执行的动作，`allow`表示规则匹配成功后，跳出后续所有规则（一般对静态资源图片），referer匹配失败就拒绝访问（白名单），防盗链为主；规则的取反可以设置防护站外的CSRF
 
   state：表示规则是否开启
@@ -527,15 +555,17 @@ args：`["*","",["args_name",1]]`
   hostname：匹配host
   referer：匹配referer
   action：匹配动作
-  
+
   > referer的匹配是白名单，注意一下即可
   > 这些匹配都是基于上面说过的二阶匹配法
+
+ [返回](#top)
 
 ## STEP 7：uri_Mod（黑、白名单）
 
  - 说明：
  `{"state":"on","hostname":["\*",""],"uri":["\\.(css|js|flv|swf|zip|txt)$","jio"],"action":"allow"}`
-   
+
   上面的例子表示，规则启用，任意host，uri正则匹配成功后放行，不进行后续规则匹配（该场景同图片等静态资源一样进行放行，减少后续的匹配）
   state：表示规则是否开启
   hostname：表示匹配的host
@@ -544,31 +574,37 @@ args：`["*","",["args_name",1]]`
 
   > 一般情况下，过滤完静态资源后，剩下的都是拒绝一下uri的访问如.svn等一些敏感目录或文件
 
+ [返回](#top)
+
 ## STEP 8：header_Mod（黑名单）
 
  - 说明：
  `{"state":"on","uri":["\*",""],"hostname":["\*",""],"header":["Acunetix_Aspect","\*",""]}`
- 
+
  上面的例子表示，规则启用，匹配任意host，任意uri，header中Acunetix_Aspect内容的匹配（本次匹配任意内容）这个匹配是一些扫描器过滤，该规则是wvs扫描器的特征
  state：规则是否启用
  uri：匹配uri
  hostname：匹配host
  header：匹配header头
-  
+
+ [返回](#top)
+
 ## STEP 9：useragent_Mod （黑名单）
   - 说明：
-  `{"state":"off","action":"deny","useragent":["HTTrack|harvest|audit|dirbuster|pangolin|nmap|sqln|-scan|hydra|Parser|libwww|BBBike|sqlmap|w3af|owasp|Nikto|fimap|havij|PycURL|zmeu|BabyKrokodil|netsparker|httperf|bench","jio"],"hostname":[["127.0.0.1:8080","127.0.0.1"],"table"]}`
+  `{"state":"off","action":"deny","useragent":["HTTrack|harvest|audit|dirbuster|pangolin|nmap|sqln|-scan|hydra|Parser|libwww|BBBike|sqlmap|w3af|owasp|Nikto|fimap|havij|PycURL|zmeu|BabyKrokodil|netsparker|httperf|bench","jio"],"hostname":[["127.0.0.1:8080","127.0.0.1"],"list"]}`
 
-  上面的例子表示，规则关闭，匹配host为127.0.0.1 和 127.0.0.1:8080 ，useragent正则匹配，匹配成功则拒绝访问，一般host设置为：`"hostname":["*",""]`表示所有（字符串匹配，非常快）
+  上面的例子表示，规则关闭，匹配host为127.0.0.1 或者 127.0.0.1:8080 ，useragent正则匹配，匹配成功则拒绝访问，一般host设置为：`"hostname":["*",""]`表示所有（字符串匹配，非常快）
   state：规则是否启用
   hostname：匹配host
   useragent：匹配agent
   action：匹配动作
- 
+
+ [返回](#top)
+
 ## STEP 10：cookie_Mod（黑名单）
  - 说明：
  `{"state":"on","cookie":["\\.\\./","jio"],"hostname":["*",""],"action":"deny"}`
-   
+
   上面的例子表示，规则启用，匹配任意host，cookies匹配正则，匹配成功则执行拒绝访问操作
   state：表示规则是否启用
   cookie：表示匹配cookie
@@ -577,17 +613,21 @@ args：`["*","",["args_name",1]]`
 
   > action后续可以能增加其他action，所以预留在这，否则黑名单根本不需要action参数
 
+ [返回](#top)
+
 ## STEP 11：args_Mod（黑名单）
 
  - 说明：
  `{"state":"on","hostname":["*",""],"args_data":["\\:\\$","jio"],"action":"deny"}`
- 
+
  上面例子表示，规则启用，匹配任意host，query_string参数组匹配正则，成功则执行拒绝访问动作
  state：表示规则是否启用
  hostname：表示匹配host
  query_string：表示匹配args参数组
  action：表示匹配成功拒绝访问
- 
+
+ [返回](#top)
+
 ## STEP 12：post_Mod（黑名单）
  - 说明：
  `{"state":"on","hostname":["*",""],"posts_data":["\\$\\{","jio"],"action":"deny"}`
@@ -598,6 +638,7 @@ args：`["*","",["args_name",1]]`
   post_str：匹配post参数组
   action：匹配成功后拒绝访问
 
+ [返回](#top)
 
 ## STEP 13：network_Mod（频率黑名单）
  - 说明：
@@ -610,6 +651,8 @@ args：`["*","",["args_name",1]]`
   network：maxReqs ==> 请求次数；pTime ==> 单位时间；blacktime ==> ip黑名单时长
 
   > 一般情况下，cc攻击的点一个网站只有为数不多的地方是容易被攻击的点，所以设计时，考虑增加通过url细化匹配。
+
+ [返回](#top)
 
 ## STEP 14：replace_Mod（内容替换）
  - 说明：
@@ -638,109 +681,68 @@ OpenStar测试服务器：
 
 ```
  微软虚机，内网测试
- 
+
  uname -a :
  Linux dpicsvr01 4.2.0-30-generic #36-Ubuntu SMP Fri Feb 26 00:58:07 UTC 2016 x86_64 x86_64 x86_64 GNU/Linux
- 
+
  内存：
  cat /proc/meminfo | grep MemTotal
  MemTotal:       14360276 kB// 14GB
- 
+
  CPU型号：cat /proc/cpuinfo | grep 'model name' |uniq
  Intel(R) Xeon(R) CPU E5-2660 0 @ 2.20GHz
- 
+
  CPU核数：cat /proc/cpuinfo | grep "cpu cores" | uniq
  4
- 
+
  CPU个数：cat /proc/cpuinfo | grep "physical id" | uniq | wc -l
- 1 
+ 1
  ab：
  ab -c 1000 -n 100000 "http://10.0.0.4/test/a?a=b&c=d"
 ```
 测试结果：
-![enter description here][7]
+![enter description here][6]
  通过图片可以看到，关闭所有规则，做了2组测试，取最高的`8542`；
- 
+
  启用规则（排除app，network，replace），测试结果`8388`，性能下降`1.81%`；
- 
+
  启用规则（排除replace，app中未启用relua这个高消耗点），测试结果`7959`，性能下降`6.83%`；
- 
+
  启用规则（排除useragent，ab工具默认被拦截了，第二个测试就不完全了。）测试结果`7116`，性能下降`16%`；
- 
+
  总的来说，启用规则后，性能损失可以接受，根据自身的业务进行调整，还可以有所优化。
 
-# TODO
-
-**next 1.x 增加app_Mod，丰富动作, 增加token和IP绑定功能 **
-一些地方的规则定义不好理解，还没想到好办法这么改比较好。还有正则匹配时启用超时操作。
-
-**一些朋友觉得需要增加，当OpenStar作为CDN时，可以配置用户真实IP到自定义http头中**
-该需求后续会加上，一些json就可能合并，比如realIpFrom/realIpSet/denyMsg/host_Mod-state，这些基于host的基础配置合并到一起了。
-
-**增加post表单的自定义规则组方式**
-post表单处理比较麻烦，暂时初步完成，测试后会更新
- 
-# 变更历史
-
-## 1.7 更新二阶匹配规则支持取反，动作取消next等
-原二阶规则：["baidu","in"],支持取反后：["baidu","in",true];最后的默认是nil也就是false,不取反的意思，所以规则基本可以之间复用，动作为next的需要修改一下即可
-
-## 1.6 更新计数count_dict到DB 2,key也进行分开，优化规则缓存
-规则进行了缓存，大幅提高性能，json文件保存进行了美化等......
-
-## 1.5 应一些朋友强烈要求增加Master/Slave模式
-主：定时将内存中的配置推送到redis, 从：定时从redis拉取数据到内存后，并保存到文件
-
-## 1.4 更新命名相关，以多规则匹配
-原来url改成uri，args改成query_string，修改的比较多，还有增加app_Mod实现多规则匹配，连接符支持OR
-
-## 1.3 更新跳转功能，可配置进行set-cookie操作
-可以配置某一个或者多个url使用跳转set-cookie操作。cookie是无状态的。
-
-## 1.2 更新支持拦截外部的csrf
-在referer_Mod处，增加action，`allow`表示允许且后续的规则不用在匹配（一般是静态资源如图片/js/css等），`next`表示白名单匹配成功后，会继续后面的规则匹配（这里就用于拦截外部的CSRF）增加`next`是因为原来代码中，若配置了防护站外的CSRF，后续的规则会bypass,所以增加的，这样就不会出现一些绕过问题。
-**后续的action理论上都支持该语法**
-
-## 1.1 增加app_Mod,丰富allow动作（ip）
-网站的某个目录进行IP白名单的访问控制（后台、phpmyadmin等）
-
-## 0.9 - 1.0 修改了大量全局函数
-在学习完[OpenResty最佳实践][5]后，代码太不专业，修改了大量全局变量、函数
-
-## 0.8 优化一下算法
-原来args是遍历每个参数在连接起来，感觉性能有时有点瓶颈，就使用新api取出url中的所有参数，经过测试效果要比原来好很多。
-
-## 0.7 增加集群版本
-当时大约有2-4台OpenStar服务器用于安全防护，通过脚本进行统一管理的，没有进行真正的统一管理，所以抽空的时候把redis用上。
-
-## 0.6 增加API相关操作
-因为是个蹩脚的程序员（没办法，搞安全的现在都被逼的写代码了；感谢春哥，我在写的过程中非常的快乐，所以就把项目叫做OpenStar[开心]，请勿见笑了）、前端界面我迟迟没有想好，所以先把一下操作的API封装了，也满足当时公司脚本化需求。
-
-## 0.4-0.5 增加配置文件操作
-刚开始都是写在lua代码中，随着功能增加，决定通过配置文件进行操作，所有就使用json方式进行定义配置文件。
-
-## 0.3 增加waf防护模块
-随着cc防护成功后，我陆续增加了waf相关的功能，规则参考了[modsecurity][6]、[loveshell][4]防护模块、以及互联网搜集的一些过滤点
-
-## 0.2 CC防护应用层版
-通过网络层+应用层的防护后，我后续增加了应用层的安全防护，如应用层set cookie、url跳转、js跳转等这样应用层的防护模块
-
-## 0.1 CC防护版
-当时是为了解决公司的CC攻击，由于一些硬件抗D设备在新的网络环境下（有CDN网络下）无法获取用户真实IP头，我才动手将第一个版本完成，当时功能就是有通过自定义HTTP头获取用户真实ip进行访问频率的限制。（OpenStar可以根据某个url进行频率限制，不仅仅是整个网站的[排除静态文件，如设置了referer\_Mod 或者 url\_Mod 中资源的allow操作]）
 
 # 关于
 
-- 关于该项目前面其实已经说了不少，从无到有基本都说了，强调下，感谢春哥，[loveshell][4]！！！
+- 关于该项目前面其实已经说了不少，从无到有基本都说了，强调下，感谢春哥，[loveshell][9]！！！
 - 关于我：从事安全、架构相关工作。
 - Copyright and License
 GPL（GNU General Public License）
-Copyright (C) 2011-2016, by zj 
+Copyright (C) 2011-2016, by zj
 
 
   [1]: https://github.com/agentzh
   [2]: http://openresty.org/cn/
-  [3]: ./doc/Openstar.jpg "OpenStar.jpg"
-  [4]: https://github.com/loveshell/ngx_lua_waf
-  [5]: https://moonbingbing.gitbooks.io/openresty-best-practices/content/index.html
-  [6]: http://www.modsecurity.org/
-  [7]: ./doc/test.png "test.png"
+  [3]: https://github.com/starjun/openstar/wiki/%E5%AE%89%E8%A3%85%E7%AF%87
+  [4]: https://github.com/starjun/openstar/wiki/base.json
+  [5]: ./doc/Openstar.jpg "OpenStar.jpg"
+  [6]: ./doc/test.png "test.png"
+  [7]: https://moonbingbing.gitbooks.io/openresty-best-practices/content/index.html
+  [8]: http://www.modsecurity.org/
+  [9]: https://github.com/loveshell/ngx_lua_waf
+  [10]: https://github.com/starjun/openstar/wiki/0-realIpFrom_Mod
+  [11]: https://github.com/starjun/openstar/wiki/1-ip_Mod
+  [12]: https://github.com/starjun/openstar/wiki/2-host_method_Mod
+  [13]: https://github.com/starjun/openstar/wiki/3-rewrite_Mod
+  [14]: https://github.com/starjun/openstar/wiki/4-host_Mod
+  [15]: https://github.com/starjun/openstar/wiki/5-app_Mod
+  [16]: https://github.com/starjun/openstar/wiki/6-referer_Mod
+  [17]: https://github.com/starjun/openstar/wiki/7-uri_Mod
+  [18]: https://github.com/starjun/openstar/wiki/8-header_Mod
+  [19]: https://github.com/starjun/openstar/wiki/9-useragent_Mod
+  [20]: https://github.com/starjun/openstar/wiki/10-cookie_Mod
+  [21]: https://github.com/starjun/openstar/wiki/11-args_Mod
+  [22]: https://github.com/starjun/openstar/wiki/12-post_Mod
+  [23]: https://github.com/starjun/openstar/wiki/13-network_Mod
+  [24]: https://github.com/starjun/openstar/wiki/14-replace_Mod

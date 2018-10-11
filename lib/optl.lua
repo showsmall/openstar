@@ -1,6 +1,7 @@
 
 -- 用于生成唯一随机字符串
 local random = require "resty-random"
+local stool = require "stool"
 local cjson_safe = require "cjson.safe"
 local ngx_re_find = ngx.re.find
 local ngx_re_gsub = ngx.re.gsub
@@ -12,17 +13,22 @@ local config_dict = ngx.shared.config_dict
 local config = cjson_safe.decode(config_dict:get("config")) or {}
 local config_version = 0
 
---- 文件读写
-local function readfile(_filepath)
-    -- local fd = assert(io.open(_filepath,"r"),"readfile io.open error")
-    local fd,err = io.open(_filepath,"r")
-    if fd == nil then
-        --ngx.log(ngx.ERR,"readfile error",err)
-        return
+--- 读取文件（全部读取/按行读取）
+local function readfile(_filepath,_ty)
+    local fd = io.open(_filepath,"r")
+    if fd == nil then return end
+    if _ty == nil then
+        local str = fd:read("*a") --- 全部内容读取
+        fd:close()
+        return str
+    else
+        local line_s = {}
+        for line in fd:lines() do
+            table.insert(line_s, line)
+        end
+        fd:close()
+        return line_s
     end
-    local str = fd:read("*a") --- 全部内容读取
-    fd:close()
-    return str
 end
 
 -- 默认写文件错误时，会将错误信息和_msg数据使用ngx.log写到错误日志中。
@@ -120,7 +126,7 @@ end
 --- 基础 常用二阶匹配规则
 -- 说明：[_restr,_options]  _str 就是被匹配的内容
 -- eg "ip":["*",""]
--- eg "hostname":[["www.abc.com","127.0.0.1"],"table"]
+-- eg "hostname":[["www.abc.com","127.0.0.1"],"list"]
 local function remath(_str,_re_str,_options)
     if _str == nil or _re_str == nil or _options == nil then return false end
     if _options == "" then
@@ -128,24 +134,41 @@ local function remath(_str,_re_str,_options)
         if _str == _re_str or _re_str == "*" then
             return true
         end
-    elseif _options == "table" then
-        -- table 匹配，在table中 字符串完全匹配
+    elseif _options == "list" then
+        return stool.isInArrayTb(_str,_re_str)
+    elseif _options == "in" then
+        return stool.stringIn(_str,_re_str)
+    -- add new type
+    elseif _options == "start_list" then
         if type(_re_str) ~= "table" then return false end
         for _,v in ipairs(_re_str) do
-            if v == _str then
+            if stool.stringStarts(_str,v) then
                 return true
             end
         end
-    elseif _options == "in" then
-        --- 用于包含 查找 string.find
-        local from , to = string.find(_str, _re_str,1,true)
-        --if from ~= nil or (from == 1 and to == 0 ) then
-        --当_re_str=""时的情况 已处理
-        if from ~= nil and to ~= 0 then
-            return true
+    elseif _options == "end_list" then
+        if type(_re_str) ~= "table" then return false end
+        for _,v in ipairs(_re_str) do
+            if stool.stringEnds(_str,v) then
+                return true
+            end
         end
-    elseif _options == "list" then
-        --- list 匹配，o(1) 比table要好些， 字符串完全匹配
+    elseif _options == "in_list" then
+        if type(_re_str) ~= "table" then return false end
+        for _,v in ipairs(_re_str) do
+            if stool.stringIn(_str,v) then
+                return true
+            end
+        end
+    elseif _options == "rein_list" then
+        if type(_re_str) ~= "table" then return false end
+        for _,v in ipairs(_re_str) do
+            if stool.stringIn(_str,string.upper(v)) then
+                return true
+            end
+        end
+    elseif _options == "dict" then
+        --- 字典(dict) 匹配，o(1) 比序列(list)要好些， 字符串完全匹配
         if type(_re_str) ~= "table" then return false end
         local re = _re_str[_str]
         if re == true then -- 需要判断一下 有可能是值类型的值
@@ -327,8 +350,8 @@ local function or_remath(_or_list,_basemsg)
     -- or 匹配 任意一个为真 则为真
     for _,v in ipairs(_or_list) do
         if action_remath(v[1],v[2],_basemsg) then -- 真
-            return true        
-        end        
+            return true
+        end
     end
     return false
 end
@@ -393,9 +416,9 @@ local function ngx_find(_str)
 
     -- string.find 字符串 会走jit,所以就没有用ngx模块
     -- 当前情况下，对token仅是全局替换一次，请注意
-    if string.find(_str,"@token@") ~= nil then       
+    if string.find(_str,"@token@") ~= nil then
         _str = ngx_re_gsub(_str,"@token@",tostring(set_token()))
-    end 
+    end
     return _str
 end
 
@@ -408,7 +431,7 @@ local function sayHtml_ext(_html,_find_type,_content_type)
         _html = tableTojson(_html)
     end
 
-    if _find_type ~= nil then
+    if _find_type then
         _html = ngx_find(_html)
     end
 
@@ -465,7 +488,7 @@ end
     local function get_post_all()
         --ngx.req.read_body()
         local data = ngx.req.get_body_data() -- ngx.req.get_post_args()
-        if not data then 
+        if not data then
             local datafile = ngx.req.get_body_file()
             if datafile then
                 local fh, err = io.open(datafile, "r")
