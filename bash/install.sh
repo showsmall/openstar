@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # bash 版本
-version=0.4
+version=0.7
 
 build_path=/opt/down
 install_path=/opt/openresty
@@ -15,7 +15,7 @@ openstar_uri=https://codeload.github.com/starjun/openstar/zip/master
 rpm_uri=http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
 
 function YUM_start(){
-    yum install -y epel-release
+    yum install -y htop goaccess epel-release
     rpm -Uvh ${rpm_uri}
     yum groupinstall -y "Development tools"
     yum install -y wget make gcc readline-devel perl pcre-devel openssl-devel git unzip zip
@@ -46,7 +46,7 @@ function openresty(){
     tar zxvf openresty-${install_version}.tar.gz
 
     cd ${build_path}/openresty-${install_version}
-    ./configure --prefix=${install_path} --with-luajit --with-http_v2_module
+    ./configure --prefix=${install_path} --with-http_realip_module --with-http_v2_module
     gmake
     gmake install
 
@@ -97,8 +97,7 @@ if [ "$1" = "install" ];then
     openstar
 
     ##############################
-    echo "PATH=${install_path}/nginx/sbin:\$PATH" >> /etc/profile
-    export PATH
+    cat /etc/profile |grep "openresty" ||(echo "PATH=${install_path}/nginx/sbin:\$PATH" >> /etc/profile && export PATH)
 
 elif [ "$1" = "openstar" ]; then
     cd ${install_path}
@@ -110,6 +109,7 @@ elif [ "$1" = "openstar" ]; then
 
     ######### 保持原来所有规则
     alias cp='cp'
+    cp -Rf  ${install_path}/openstar/conf_json ${install_path}/openstar/conf_json_bak
     cp -Rf  ${install_path}/openstar.${newstar}/conf_json ${install_path}/openstar/
     chown -R nobody:nobody ${install_path}/openstar/
     alias cp='cp -i'
@@ -118,9 +118,11 @@ elif [ "$1" = "openstar" ]; then
 elif [ "$1" = "openresty" ]; then
 
     openresty
+    cat /etc/profile |grep "openresty" ||(echo "PATH=${install_path}/nginx/sbin:\$PATH" >> /etc/profile && export PATH)
 elif [ "$1" = "check" ]; then
 
     check
+    cat /etc/profile |grep "openresty" ||(echo "PATH=${install_path}/nginx/sbin:\$PATH" >> /etc/profile && export PATH)
 else
     echo_ServerMsg
 fi
